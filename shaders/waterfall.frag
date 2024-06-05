@@ -13,6 +13,7 @@ uniform vec3 topLightColor;
 uniform vec3 bottomLightColor;
 uniform vec3 foamColor;
 uniform float time;
+uniform float speed;
 
 const float strength = 0.02;
 const float foamThreshold = 0.15;
@@ -24,7 +25,7 @@ float round(float a)
 
 void main()
 {
-	float t = time * 0.002;
+	float t = time * speed * 0.002;
 
 	vec2 displacement = texture2D(tDudv, vUv + t * 0.1).rg;
 	displacement = ((displacement * 2.0) - 1.0) * strength;

@@ -114,7 +114,7 @@ function updateParticles(particleSystem, delta)
 	particleSystem.update(delta);
 }
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Create waterfall", (id, diameter, height, shape, darkColor01, darkColor02, lightColor01, lightColor02, foamColor, addFoam) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Create waterfall", (id, diameter, height, shape, speed, darkColor01, darkColor02, lightColor01, lightColor02, foamColor, addFoam) =>
 {
 	if (id == -1)
 		id = RPM.Core.ReactionInterpreter.currentObject.id;
@@ -125,6 +125,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Create waterfall", (id, diamete
 			const u =
 			{
 				time: {value: 0},
+				speed: {value: speed},
 				tNoise: {value: noiseMap},
 				tDudv: {value: dudvMap},
 				topDarkColor: {value: darkColor01.color},
