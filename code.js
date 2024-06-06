@@ -11,6 +11,7 @@ const path = RPM.Common.Paths.PLUGINS + pluginName + "/";
 const noiseMap = loader.load(path + "textures/noise.jpg");
 const dudvMap = loader.load(path + "textures/dudv.png");
 
+var shadersLoaded = false;
 var vert = null;
 var frag = null;
 var waterfallList = [];
@@ -25,6 +26,43 @@ noiseMap.wrapS = noiseMap.wrapT = THREE.RepeatWrapping;
 noiseMap.minFilter = THREE.NearestFilter;
 noiseMap.magFilter = THREE.NearestFilter;
 dudvMap.wrapS = dudvMap.wrapT = THREE.RepeatWrapping;
+
+async function init()
+{
+	vert = await RPM.Common.IO.openFile(path + "shaders/waterfall.vert");
+	frag = await RPM.Common.IO.openFile(path + "shaders/waterfall.frag");
+	shadersLoaded = true;
+}
+init();
+
+setInterval(function ()
+{
+	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
+	{
+		if (mapID != RPM.Scene.Map.current.id)
+		{
+			waterfallList = [];
+			particlesList = [];
+			mapID = RPM.Scene.Map.current.id;
+		}
+		t0 = t1;
+		t1 = RPM.Core.Game.current.playTime.time;
+		for (var i = 0; i < particlesList.length; i++)
+			updateParticles(particlesList[i], t1 - t0);
+		for (var i = 0; i < waterfallList.length; i++)
+			waterfallList[i].material.uniforms.time.value = t1;
+	}
+}, 16);
+
+setInterval(function ()
+{
+	for (var i = 0; i < particlesList.length; i++)
+		if (particlesList[i]._instancedMesh.parent === null || particlesList[i]._instancedMesh.parent.parent === null)
+			particlesList.splice(i, 1);
+	for (var i = 0; i < waterfallList.length; i++)
+		if (waterfallList[i].parent === null || waterfallList[i].parent.parent === null)
+			waterfallList.splice(i, 1);
+}, 1000);
 
 function newParticleSystem(color, radius, height, shape)
 {
@@ -46,31 +84,6 @@ function newParticleSystem(color, radius, height, shape)
 	particleSystem.init(particleGeometry, particleMaterial, 250);
 	return particleSystem;
 }
-
-async function init()
-{
-	vert = await RPM.Common.IO.openFile(path + "shaders/waterfall.vert");
-	frag = await RPM.Common.IO.openFile(path + "shaders/waterfall.frag");
-}
-init();
-
-setInterval(function ()
-{
-	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
-	{
-		if (mapID != RPM.Scene.Map.current.id)
-		{
-			waterfallList = [];
-			mapID = RPM.Scene.Map.current.id;
-		}
-		t0 = t1;
-		t1 = RPM.Core.Game.current.playTime.time;
-		for (var i = 0; i < particlesList.length; i++)
-			updateParticles(particlesList[i], t1 - t0);
-		for (var i = 0; i < waterfallList.length; i++)
-			waterfallList[i].material.uniforms.time.value = t1;
-	}
-}, 16);
 
 function updateParticles(particleSystem, delta)
 {
@@ -114,63 +127,73 @@ function updateParticles(particleSystem, delta)
 	particleSystem.update(delta);
 }
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Create waterfall", (id, diameter, height, shape, speed, darkColor01, darkColor02, lightColor01, lightColor02, foamColor, addFoam) =>
+function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark, topLight, bottomLight, foamColor, addFoam)
+{
+	if (shadersLoaded && mapID === RPM.Scene.Map.current.id)
+	{
+		RPM.Core.MapObject.search(id, (result) =>
+		{
+			if (!!result)
+			{
+				const u =
+				{
+					time: {value: 0},
+					speed: {value: speed},
+					tNoise: {value: noiseMap},
+					tDudv: {value: dudvMap},
+					topDarkColor: {value: topDark.color},
+					bottomDarkColor: {value: bottomDark.color},
+					topLightColor: {value: topLight.color},
+					bottomLightColor: {value: bottomLight.color},
+					foamColor: {value: foamColor.color}
+				};
+				const m = new THREE.ShaderMaterial(
+				{
+					uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib['fog'], u]),
+					vertexShader: vert,
+					fragmentShader: frag,
+					fog: true,
+				});
+				const r = diameter * RPM.Datas.Systems.SQUARE_SIZE / 2;
+				const h = height * RPM.Datas.Systems.SQUARE_SIZE;
+				var w;
+				switch (shape)
+				{
+					case 2:
+						w = new THREE.Mesh(new THREE.BoxBufferGeometry(r * 2, h * 1.1, r * 2), m);
+						break;
+					case 3:
+						w = new THREE.Mesh(new THREE.SphereBufferGeometry(r), m);
+						break;
+					case 4:
+						w = new THREE.Mesh(new THREE.PlaneBufferGeometry(r * 2, h * 1.1), m);
+						m.side = THREE.DoubleSide;
+						break;
+					default:
+						w = new THREE.Mesh(new THREE.CylinderBufferGeometry(r, r, h * 1.1, 32, 1, true), m);
+				}
+				RPM.Scene.Map.current.scene.remove(result.object.mesh);
+				result.object.mesh = new THREE.Mesh();
+				w.position.y += h * 0.45;
+				result.object.mesh.add(w);
+				waterfallList.push(w);
+				if (addFoam && shape !== 3)
+				{
+					const p = newParticleSystem(foamColor.color, r, h, shape);
+					result.object.mesh.add(p._instancedMesh);
+					particlesList.push(p);
+				}
+				RPM.Scene.Map.current.scene.add(result.object.mesh);
+			}
+		}, RPM.Core.ReactionInterpreter.currentObject);
+	}
+	else
+		setTimeout(createWaterfall, 32, id, diameter, height, shape, speed, topDark, bottomDark, topLight, bottomLight, foamColor, addFoam);
+}
+
+RPM.Manager.Plugins.registerCommand(pluginName, "Create waterfall", (id, diameter, height, shape, speed, topDark, bottomDark, topLight, bottomLight, foamColor, addFoam) =>
 {
 	if (id == -1)
 		id = RPM.Core.ReactionInterpreter.currentObject.id;
-	RPM.Core.MapObject.search(id, (result) =>
-	{
-		if (!!result)
-		{
-			const u =
-			{
-				time: {value: 0},
-				speed: {value: speed},
-				tNoise: {value: noiseMap},
-				tDudv: {value: dudvMap},
-				topDarkColor: {value: darkColor01.color},
-				bottomDarkColor: {value: darkColor02.color},
-				topLightColor: {value: lightColor01.color},
-				bottomLightColor: {value: lightColor02.color},
-				foamColor: {value: foamColor.color}
-			};
-			const m = new THREE.ShaderMaterial(
-			{
-				uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib['fog'], u]),
-				vertexShader: vert,
-				fragmentShader: frag,
-				fog: true,
-			});
-			const r = diameter * RPM.Datas.Systems.SQUARE_SIZE / 2;
-			const h = height * RPM.Datas.Systems.SQUARE_SIZE;
-			var w;
-			switch (shape)
-			{
-				case 2:
-					w = new THREE.Mesh(new THREE.BoxBufferGeometry(r * 2, h * 1.1, r * 2), m);
-					break;
-				case 3:
-					w = new THREE.Mesh(new THREE.SphereBufferGeometry(r), m);
-					break;
-				case 4:
-					w = new THREE.Mesh(new THREE.PlaneBufferGeometry(r * 2, h * 1.1), m);
-					m.side = THREE.DoubleSide;
-					break;
-				default:
-					w = new THREE.Mesh(new THREE.CylinderBufferGeometry(r, r, h * 1.1, 32, 1, true), m);
-			}
-			RPM.Scene.Map.current.scene.remove(result.object.mesh);
-			result.object.mesh = new THREE.Mesh();
-			w.position.y += h * 0.45;
-			result.object.mesh.add(w);
-			waterfallList.push(w);
-			if (addFoam && shape !== 3)
-			{
-				const p = newParticleSystem(foamColor.color, r, h, shape);
-				result.object.mesh.add(p._instancedMesh);
-				particlesList.push(p);
-			}
-			RPM.Scene.Map.current.scene.add(result.object.mesh);
-		}
-	}, RPM.Core.ReactionInterpreter.currentObject);
+	createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark, topLight, bottomLight, foamColor, addFoam);
 });
