@@ -25,7 +25,7 @@ float round(float a)
 
 void main()
 {
-	float t = time * speed * 0.002;
+	float t = time * speed * 0.001;
 
 	vec2 displacement = texture2D(tDudv, vUv + t * 0.1).rg;
 	displacement = ((displacement * 2.0) - 1.0) * strength;
