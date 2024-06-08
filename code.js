@@ -135,6 +135,8 @@ function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark
 		{
 			if (!!result)
 			{
+				const r = diameter * RPM.Datas.Systems.SQUARE_SIZE / 2;
+				const h = height * RPM.Datas.Systems.SQUARE_SIZE;
 				const u =
 				{
 					time: {value: 0},
@@ -153,9 +155,8 @@ function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark
 					vertexShader: vert,
 					fragmentShader: frag,
 					fog: true,
+					side: h < 0 ? THREE.DoubleSide : THREE.FrontSide
 				});
-				const r = diameter * RPM.Datas.Systems.SQUARE_SIZE / 2;
-				const h = height * RPM.Datas.Systems.SQUARE_SIZE;
 				var w;
 				switch (shape)
 				{
@@ -174,7 +175,7 @@ function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark
 				}
 				RPM.Scene.Map.current.scene.remove(result.object.mesh);
 				result.object.mesh = new THREE.Mesh();
-				w.position.y += h * 0.45;
+				w.position.y += h < 0 ? -h * 0.55 : h * 0.45;
 				result.object.mesh.add(w);
 				waterfallList.push(w);
 				if (addFoam && shape !== 3)
@@ -182,6 +183,8 @@ function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark
 					const p = newParticleSystem(foamColor.color, r, h, shape);
 					result.object.mesh.add(p._instancedMesh);
 					particlesList.push(p);
+					if (h < 0)
+						p._instancedMesh.position.y -= h;
 				}
 				RPM.Scene.Map.current.scene.add(result.object.mesh);
 			}
