@@ -16,7 +16,7 @@ var vert = null;
 var frag = null;
 var waterfallList = [];
 var particlesList = [];
-var mapID = 0;
+var lastMap = null;
 var emissionTime = 0;
 var nextEmissionTime = 0;
 var t0 = 0;
@@ -39,11 +39,11 @@ setInterval(function ()
 {
 	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
 	{
-		if (mapID != RPM.Scene.Map.current.id)
+		if (RPM.Scene.Map.current !== lastMap)
 		{
 			waterfallList = [];
 			particlesList = [];
-			mapID = RPM.Scene.Map.current.id;
+			lastMap = RPM.Scene.Map.current;
 		}
 		t0 = t1;
 		t1 = RPM.Core.Game.current.playTime.time;
@@ -129,7 +129,7 @@ function updateParticles(particleSystem, delta)
 
 function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark, topLight, bottomLight, foamColor, addFoam)
 {
-	if (shadersLoaded && mapID === RPM.Scene.Map.current.id)
+	if (shadersLoaded && RPM.Scene.Map.current === lastMap)
 	{
 		RPM.Core.MapObject.search(id, (result) =>
 		{
