@@ -14,6 +14,7 @@ uniform vec3 bottomLightColor;
 uniform vec3 foamColor;
 uniform float time;
 uniform float speed;
+uniform float opacity;
 
 const float strength = 0.02;
 const float foamThreshold = 0.15;
@@ -37,7 +38,7 @@ void main()
 	color = mix(color, foamColor, step(vUv.y + displacement.y, foamThreshold)); // add foam
 
 	gl_FragColor.rgb = color;
-	gl_FragColor.a = 1.0;
+	gl_FragColor.a = opacity;
 
 	#include <tonemapping_fragment>
 	#include <encodings_fragment>
