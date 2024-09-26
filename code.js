@@ -208,6 +208,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set opacity", (id, opacity) =>
         {
             result.object.mesh.children[0].material.uniforms.opacity.value = opacity;
             result.object.mesh.children[0].material.transparent = true;
+            result.object.mesh.children[0].renderOrder = 1;
         }
     }, RPM.Core.ReactionInterpreter.currentObject);
 });
