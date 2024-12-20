@@ -176,6 +176,7 @@ function createWaterfall(id, diameter, height, shape, speed, topDark, bottomDark
             result.object.mesh = new THREE.Mesh();
             w.position.y += h < 0 ? -h * 0.55 : h * 0.45;
             result.object.mesh.add(w);
+			result.object.mesh.rotation.setFromVector3(result.object.currentAngle.clone().multiplyScalar(Math.PI / 180));
             waterfallList.push(w);
             if (addFoam && shape !== 3)
             {
